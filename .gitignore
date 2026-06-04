@@ -1,0 +1,13 @@
+# Dépendances
+node_modules/
+
+# Variables d'environnement (fichiers secrets !)
+.env
+.env.local
+
+# Logs
+*.log
+
+# Build
+dist/
+build/
