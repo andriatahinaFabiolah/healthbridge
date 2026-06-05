@@ -2,6 +2,7 @@ import app from './src/app.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { connectDB } from './src/utils/database.js';
+import { syncDB } from './src/models/index.js';
 
 const httpServer = createServer(app);
 
@@ -18,6 +19,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 await connectDB();
+await syncDB();
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT} 🚀`);
 });
