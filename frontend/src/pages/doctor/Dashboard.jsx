@@ -7,36 +7,44 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Heart, LogOut, Users, Calendar,
   FileText, MessageCircle, TrendingUp,
-  Stethoscope, Plus, Bell
+  Stethoscope, Bell, Send, Plus, Activity
 } from 'lucide-react';
 import axios from 'axios';
+
+const api = (token) => axios.create({
+  baseURL: 'http://localhost:5000/api',
+  headers: { Authorization: `Bearer ${token}` }
+});
 
 export default function DoctorDashboard() {
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [patients, setPatients] = useState([]);
   const [consultations, setConsultations] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patientId, setPatientId] = useState('');
+  const [messageInput, setMessageInput] = useState('');
   const [prescriptionForm, setPrescriptionForm] = useState({
     consultationId: '', patientId: '', medications: '', duration: '', instructions: ''
   });
-  const [prescriptionLoading, setPrescriptionLoading] = useState(false);
   const [prescriptionSuccess, setPrescriptionSuccess] = useState(false);
+  const [prescriptionLoading, setPrescriptionLoading] = useState(false);
+  const [selectedPatientSymptoms, setSelectedPatientSymptoms] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const headers = { Authorization: `Bearer ${token}` };
+        const http = api(token);
         const [patientsRes, consultRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/doctors/patients', { headers }),
-          axios.get('http://localhost:5000/api/doctors/consultations', { headers }),
+          http.get('/doctors/patients'),
+          http.get('/doctors/consultations'),
         ]);
         setPatients(patientsRes.data.patients);
         setConsultations(consultRes.data.consultations);
@@ -49,6 +57,30 @@ export default function DoctorDashboard() {
     fetchData();
   }, [token]);
 
+  const fetchMessages = async (pId) => {
+    try {
+      const res = await api(token).get(`/doctors/messages/${pId}`);
+      setMessages(res.data.messages);
+    } catch (error) { console.error(error); }
+  };
+
+  const fetchPatientSymptoms = async (pId) => {
+    try {
+      const res = await api(token).get(`/doctors/patients/${pId}/symptoms`);
+      setSelectedPatientSymptoms(res.data.symptoms);
+      setSelectedPatientId(pId);
+    } catch (error) { console.error(error); }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput || !patientId) return;
+    try {
+      await api(token).post(`/doctors/messages/${patientId}`, { content: messageInput });
+      setMessageInput('');
+      fetchMessages(patientId);
+    } catch (error) { console.error(error); }
+  };
+
   const handlePrescription = async () => {
     setPrescriptionLoading(true);
     try {
@@ -56,17 +88,14 @@ export default function DoctorDashboard() {
         const parts = m.trim().split(' ');
         return { name: parts[0] || m.trim(), dose: parts[1] || '1cp', frequency: parts[2] || '3x/jour' };
       });
-      await axios.post(
-        'http://localhost:5000/api/doctors/prescriptions',
-        { ...prescriptionForm, medications, duration: parseInt(prescriptionForm.duration) },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api(token).post('/doctors/prescriptions', {
+        ...prescriptionForm,
+        medications,
+        duration: parseInt(prescriptionForm.duration)
+      });
       setPrescriptionSuccess(true);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setPrescriptionLoading(false);
-    }
+    } catch (error) { console.error(error); }
+    finally { setPrescriptionLoading(false); }
   };
 
   const handleLogout = () => { logout(); navigate('/login'); };
@@ -80,6 +109,25 @@ export default function DoctorDashboard() {
     const labels = { pending: 'En attente', active: 'En cours', done: 'Terminée' };
     return <Badge className={`${styles[status]} hover:${styles[status]}`}>{labels[status]}</Badge>;
   };
+
+  const getSeverityBadge = (severity) => {
+    const styles = {
+      low: 'bg-green-50 text-green-600 border-green-200',
+      medium: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+      high: 'bg-red-50 text-red-600 border-red-200',
+    };
+    const labels = { low: '🟢 Léger', medium: '🟡 Modéré', high: '🔴 Grave' };
+    return <Badge className={`${styles[severity]} hover:${styles[severity]}`}>{labels[severity]}</Badge>;
+  };
+
+  const navItems = [
+    { id: 'dashboard', icon: TrendingUp, label: 'Tableau de bord' },
+    { id: 'patients', icon: Users, label: 'Mes patients' },
+    { id: 'consultations', icon: Calendar, label: 'Consultations' },
+    { id: 'prescriptions', icon: FileText, label: 'Ordonnances' },
+    { id: 'messages', icon: MessageCircle, label: 'Messages' },
+    { id: 'notifications', icon: Bell, label: 'Notifications' },
+  ];
 
   if (loading) {
     return (
@@ -106,17 +154,16 @@ export default function DoctorDashboard() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {[
-            { icon: TrendingUp, label: 'Tableau de bord', active: true },
-            { icon: Users, label: 'Mes patients' },
-            { icon: Calendar, label: 'Consultations' },
-            { icon: FileText, label: 'Ordonnances' },
-            { icon: MessageCircle, label: 'Messages' },
-            { icon: Bell, label: 'Notifications' },
-          ].map((item, i) => (
-            <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-              item.active ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-            }`}>
+          {navItems.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                activeSection === item.id
+                  ? 'bg-emerald-50 text-emerald-600'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              }`}
+            >
               <item.icon className="w-4 h-4" />
               <span className="text-sm font-medium">{item.label}</span>
             </div>
@@ -145,197 +192,115 @@ export default function DoctorDashboard() {
 
       {/* Main */}
       <div className="ml-64 p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Dr. {user?.name} 👨‍⚕️</h1>
-            <p className="text-slate-500 mt-1">{user?.specialty || 'Médecin généraliste'}</p>
-          </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2">
-                <Plus className="w-4 h-4" />
-                Nouvelle ordonnance
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Rédiger une ordonnance</DialogTitle>
-              </DialogHeader>
-              {!prescriptionSuccess ? (
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>ID Consultation</Label>
-                    <Input
-                      placeholder="ex: 1"
-                      value={prescriptionForm.consultationId}
-                      onChange={(e) => setPrescriptionForm({ ...prescriptionForm, consultationId: e.target.value })}
-                      className="border-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>ID Patient</Label>
-                    <Input
-                      placeholder="ex: 3"
-                      value={prescriptionForm.patientId}
-                      onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patientId: e.target.value })}
-                      className="border-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Médicaments</Label>
-                    <Textarea
-                      placeholder="Paracetamol 500mg 3x/jour, Ibuprofène 400mg 2x/jour"
-                      value={prescriptionForm.medications}
-                      onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medications: e.target.value })}
-                      className="border-slate-200"
-                    />
-                    <p className="text-xs text-slate-400">Séparez les médicaments par des virgules</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Durée (jours)</Label>
-                    <Input
-                      type="number"
-                      placeholder="ex: 7"
-                      value={prescriptionForm.duration}
-                      onChange={(e) => setPrescriptionForm({ ...prescriptionForm, duration: e.target.value })}
-                      className="border-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Instructions</Label>
-                    <Textarea
-                      placeholder="Instructions supplémentaires..."
-                      value={prescriptionForm.instructions}
-                      onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
-                      className="border-slate-200"
-                    />
-                  </div>
-                  <Button
-                    onClick={handlePrescription}
-                    disabled={prescriptionLoading}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
-                  >
-                    {prescriptionLoading ? 'Envoi en cours...' : 'Enregistrer l\'ordonnance'}
-                  </Button>
-                </div>
-              ) : (
-                <div className="pt-2 text-center space-y-4">
-                  <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
-                    <FileText className="w-8 h-8 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-800">Ordonnance enregistrée !</p>
-                    <p className="text-sm text-slate-500 mt-1">Le patient peut maintenant consulter son traitement.</p>
-                  </div>
-                  <Button variant="outline" onClick={() => setPrescriptionSuccess(false)} className="w-full">
-                    Nouvelle ordonnance
-                  </Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <Card className="p-5 border-slate-100 shadow-none">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-slate-500">Mes patients</span>
-              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-blue-500" />
-              </div>
+        {/* SECTION: Dashboard */}
+        {activeSection === 'dashboard' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Dr. {user?.name} 👨‍⚕️</h1>
+              <p className="text-slate-500 mt-1">{user?.specialty || 'Médecin généraliste'}</p>
             </div>
-            <div className="text-3xl font-bold text-slate-900">{patients.length}</div>
-          </Card>
-          <Card className="p-5 border-slate-100 shadow-none">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-slate-500">Consultations</span>
-              <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-emerald-500" />
-              </div>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: 'Mes patients', value: patients.length, icon: Users, color: 'bg-blue-50 text-blue-500', section: 'patients' },
+                { label: 'Consultations', value: consultations.length, icon: Calendar, color: 'bg-emerald-50 text-emerald-500', section: 'consultations' },
+                { label: 'En attente', value: consultations.filter(c => c.status === 'pending').length, icon: Bell, color: 'bg-yellow-50 text-yellow-500', section: 'consultations' },
+              ].map((stat, i) => (
+                <Card key={i} className="p-5 border-slate-100 shadow-none cursor-pointer hover:border-emerald-200 transition-colors"
+                  onClick={() => setActiveSection(stat.section)}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-slate-500">{stat.label}</span>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stat.color}`}>
+                      <stat.icon className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-slate-900">{stat.value}</div>
+                </Card>
+              ))}
             </div>
-            <div className="text-3xl font-bold text-slate-900">{consultations.length}</div>
-          </Card>
-          <Card className="p-5 border-slate-100 shadow-none">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-slate-500">En attente</span>
-              <div className="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center">
-                <Bell className="w-4 h-4 text-yellow-500" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900">
-              {consultations.filter(c => c.status === 'pending').length}
-            </div>
-          </Card>
-        </div>
+          </>
+        )}
 
-        {/* Tabs */}
-        <Tabs defaultValue="patients">
-          <TabsList className="mb-6 bg-white border border-slate-100">
-            <TabsTrigger value="patients" className="gap-2">
-              <Users className="w-4 h-4" />
-              Patients
-            </TabsTrigger>
-            <TabsTrigger value="consultations" className="gap-2">
-              <Calendar className="w-4 h-4" />
-              Consultations
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Patients */}
-          <TabsContent value="patients">
-            <Card className="border-slate-100 shadow-none">
-              <div className="p-6 border-b border-slate-100">
-                <h2 className="font-semibold text-slate-800">Mes patients</h2>
-                <p className="text-sm text-slate-500 mt-1">{patients.length} patients suivis</p>
-              </div>
-              {patients.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-medium">Aucun patient pour l'instant</p>
-                  <p className="text-slate-400 text-sm mt-1">Les patients apparaîtront après leurs consultations</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-50">
-                  {patients.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-9 h-9">
-                          <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
-                            {p.name?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{p.name}</p>
-                          <p className="text-xs text-slate-400">{p.email}</p>
+        {/* SECTION: Patients */}
+        {activeSection === 'patients' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Mes patients</h1>
+              <p className="text-slate-500 mt-1">{patients.length} patient(s) suivi(s)</p>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <Card className="border-slate-100 shadow-none">
+                {patients.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 font-medium">Aucun patient pour l'instant</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-50">
+                    {patients.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-9 h-9">
+                            <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
+                              {p.name?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">{p.name}</p>
+                            <p className="text-xs text-slate-400">{p.email}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-blue-50 text-blue-600 border-blue-200">Patient</Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedPatient(p)}
-                          className="text-xs h-7 border-slate-200"
-                        >
+                        <Button size="sm" variant="outline"
+                          onClick={() => fetchPatientSymptoms(p.id)}
+                          className="text-xs h-7 border-slate-200">
                           <Stethoscope className="w-3 h-3 mr-1" />
-                          Voir dossier
+                          Symptômes
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </TabsContent>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-          {/* Consultations */}
-          <TabsContent value="consultations">
+              {/* Symptômes du patient sélectionné */}
+              <Card className="border-slate-100 shadow-none">
+                <div className="p-6 border-b border-slate-100">
+                  <h3 className="font-semibold text-slate-800">
+                    {selectedPatientId ? `Symptômes du patient #${selectedPatientId}` : 'Sélectionnez un patient'}
+                  </h3>
+                </div>
+                {selectedPatientSymptoms.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Activity className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 text-sm">Cliquez sur "Symptômes" pour voir le dossier</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-50">
+                    {selectedPatientSymptoms.map((s) => (
+                      <div key={s.id} className="px-6 py-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-slate-800">Symptôme #{s.id}</p>
+                          {getSeverityBadge(s.severity)}
+                        </div>
+                        <p className="text-sm text-slate-500">{s.description}</p>
+                        <p className="text-xs text-emerald-600 mt-1">→ {s.suggestedSpecialty}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* SECTION: Consultations */}
+        {activeSection === 'consultations' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Mes consultations</h1>
+              <p className="text-slate-500 mt-1">{consultations.length} consultation(s)</p>
+            </div>
             <Card className="border-slate-100 shadow-none">
-              <div className="p-6 border-b border-slate-100">
-                <h2 className="font-semibold text-slate-800">Mes consultations</h2>
-              </div>
               {consultations.length === 0 ? (
                 <div className="p-12 text-center">
                   <Calendar className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -350,12 +315,8 @@ export default function DoctorDashboard() {
                           <Calendar className="w-4 h-4 text-emerald-500" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            {c.Patient?.name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {new Date(c.date).toLocaleDateString('fr-FR')}
-                          </p>
+                          <p className="text-sm font-medium text-slate-800">{c.Patient?.name}</p>
+                          <p className="text-xs text-slate-400">{new Date(c.date).toLocaleDateString('fr-FR')}</p>
                         </div>
                       </div>
                       {getStatusBadge(c.status)}
@@ -364,8 +325,153 @@ export default function DoctorDashboard() {
                 </div>
               )}
             </Card>
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
+
+        {/* SECTION: Ordonnances */}
+        {activeSection === 'prescriptions' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Rédiger une ordonnance</h1>
+              <p className="text-slate-500 mt-1">Prescrivez un traitement à un patient</p>
+            </div>
+            <Card className="border-slate-100 shadow-none max-w-xl">
+              <div className="p-6">
+                {!prescriptionSuccess ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>ID Consultation</Label>
+                      <Input placeholder="ex: 1"
+                        value={prescriptionForm.consultationId}
+                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, consultationId: e.target.value })}
+                        className="border-slate-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>ID Patient</Label>
+                      <Input placeholder="ex: 3"
+                        value={prescriptionForm.patientId}
+                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patientId: e.target.value })}
+                        className="border-slate-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Médicaments</Label>
+                      <Textarea
+                        placeholder="Paracetamol 500mg 3x/jour, Ibuprofène 400mg 2x/jour"
+                        value={prescriptionForm.medications}
+                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medications: e.target.value })}
+                        className="border-slate-200" />
+                      <p className="text-xs text-slate-400">Séparez les médicaments par des virgules</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Durée (jours)</Label>
+                      <Input type="number" placeholder="ex: 7"
+                        value={prescriptionForm.duration}
+                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, duration: e.target.value })}
+                        className="border-slate-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Instructions</Label>
+                      <Textarea placeholder="Instructions supplémentaires..."
+                        value={prescriptionForm.instructions}
+                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
+                        className="border-slate-200" />
+                    </div>
+                    <Button onClick={handlePrescription} disabled={prescriptionLoading}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">
+                      {prescriptionLoading ? 'Envoi...' : 'Enregistrer l\'ordonnance'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+                      <FileText className="w-8 h-8 text-emerald-500" />
+                    </div>
+                    <p className="font-medium text-slate-800">Ordonnance enregistrée !</p>
+                    <p className="text-sm text-slate-500">Le patient peut consulter son traitement.</p>
+                    <Button variant="outline" onClick={() => setPrescriptionSuccess(false)} className="w-full">
+                      Nouvelle ordonnance
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </>
+        )}
+
+        {/* SECTION: Messages */}
+        {activeSection === 'messages' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
+              <p className="text-slate-500 mt-1">Discutez avec vos patients</p>
+            </div>
+            <div className="grid grid-cols-3 gap-6">
+              <Card className="border-slate-100 shadow-none p-4 col-span-1">
+                <Label className="mb-3 block">ID du patient</Label>
+                <Input placeholder="ex: 3"
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className="border-slate-200 mb-2" />
+                <Button onClick={() => fetchMessages(patientId)}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+                  disabled={!patientId}>
+                  Charger la conversation
+                </Button>
+              </Card>
+
+              <Card className="border-slate-100 shadow-none col-span-2 flex flex-col" style={{ height: '500px' }}>
+                <div className="p-4 border-b border-slate-100">
+                  <h3 className="font-medium text-slate-800">Conversation</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {messages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center">
+                      <p className="text-slate-400 text-sm">Aucun message</p>
+                    </div>
+                  ) : (
+                    messages.map((m) => (
+                      <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${
+                          m.senderId === user.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-800'
+                        }`}>
+                          {m.content}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-4 border-t border-slate-100 flex gap-2">
+                  <Input placeholder="Écrire un message..."
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className="border-slate-200" />
+                  <Button onClick={handleSendMessage} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* SECTION: Notifications */}
+        {activeSection === 'notifications' && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+              <p className="text-slate-500 mt-1">Vos alertes et notifications</p>
+            </div>
+            <Card className="border-slate-100 shadow-none">
+              <div className="p-12 text-center">
+                <Bell className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-medium">Aucune notification</p>
+                <p className="text-slate-400 text-sm mt-1">Les alertes des aide-soignants apparaîtront ici</p>
+              </div>
+            </Card>
+          </>
+        )}
+
       </div>
     </div>
   );
