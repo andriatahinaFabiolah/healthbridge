@@ -4,6 +4,8 @@ import { Server } from 'socket.io';
 import { connectDB } from './src/utils/database.js';
 import { syncDB } from './src/models/index.js';
 import { Message } from './src/models/index.js';
+import { verifyEmailConfig } from './src/services/email.service.js';
+import { startReminderCron } from './src/services/reminder.service.js';
 
 const httpServer = createServer(app);
 
@@ -56,6 +58,9 @@ io.on('connection', (socket) => {
 
 await connectDB();
 await syncDB();
+
+await verifyEmailConfig();
+startReminderCron();
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
