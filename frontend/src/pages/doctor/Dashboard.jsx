@@ -14,6 +14,7 @@ import {
   Stethoscope, Bell, Send, Plus, Activity
 } from 'lucide-react';
 import axios from 'axios';
+import MessagesSection from './MessagesSection';
 
 const api = (token) => axios.create({
   baseURL: 'http://localhost:5000/api',
@@ -400,61 +401,9 @@ export default function DoctorDashboard() {
 
         {/* SECTION: Messages */}
         {activeSection === 'messages' && (
-          <>
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-              <p className="text-slate-500 mt-1">Discutez avec vos patients</p>
-            </div>
-            <div className="grid grid-cols-3 gap-6">
-              <Card className="border-slate-100 shadow-none p-4 col-span-1">
-                <Label className="mb-3 block">ID du patient</Label>
-                <Input placeholder="ex: 3"
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
-                  className="border-slate-200 mb-2" />
-                <Button onClick={() => fetchMessages(patientId)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
-                  disabled={!patientId}>
-                  Charger la conversation
-                </Button>
-              </Card>
-
-              <Card className="border-slate-100 shadow-none col-span-2 flex flex-col" style={{ height: '500px' }}>
-                <div className="p-4 border-b border-slate-100">
-                  <h3 className="font-medium text-slate-800">Conversation</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {messages.length === 0 ? (
-                    <div className="h-full flex items-center justify-center">
-                      <p className="text-slate-400 text-sm">Aucun message</p>
-                    </div>
-                  ) : (
-                    messages.map((m) => (
-                      <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${
-                          m.senderId === user.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-800'
-                        }`}>
-                          {m.content}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="p-4 border-t border-slate-100 flex gap-2">
-                  <Input placeholder="Écrire un message..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="border-slate-200" />
-                  <Button onClick={handleSendMessage} className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          </>
+          <MessagesSection user={user} token={token} />
         )}
-
+        
         {/* SECTION: Notifications */}
         {activeSection === 'notifications' && (
           <>
