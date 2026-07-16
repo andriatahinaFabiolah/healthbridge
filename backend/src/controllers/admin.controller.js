@@ -39,13 +39,18 @@ export const getStats = async (req, res) => {
     const totalUsers = await User.count();
     const totalPatients = await User.count({ where: { role: 'patient' } });
     const totalDoctors = await User.count({ where: { role: 'doctor' } });
+    const totalNurses = await User.count({ where: { role: 'nurse' } });
+    const totalAdmins = await User.count({ where: { role: 'admin' } });
     const totalConsultations = await Consultation.count();
     const totalPrescriptions = await Prescription.count();
     const pendingConsultations = await Consultation.count({ where: { status: 'pending' } });
+    const activeConsultations = await Consultation.count({ where: { status: 'active' } });
+    const doneConsultations = await Consultation.count({ where: { status: 'done' } });
 
     res.status(200).json({
-      totalUsers, totalPatients, totalDoctors,
+      totalUsers, totalPatients, totalDoctors, totalNurses, totalAdmins,
       totalConsultations, totalPrescriptions, pendingConsultations,
+      activeConsultations, doneConsultations,
     });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
