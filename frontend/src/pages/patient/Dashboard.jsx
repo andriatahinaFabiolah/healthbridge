@@ -35,6 +35,10 @@ export default function PatientDashboard() {
   const [symptomForm, setSymptomForm] = useState({ description: '', severity: '' });
   const [symptomLoading, setSymptomLoading] = useState(false);
   const [symptomResult, setSymptomResult] = useState(null);
+  const [bookingDoctorId, setBookingDoctorId] = useState('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [consultationBooked, setConsultationBooked] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [doctorId, setDoctorId] = useState('');
 
@@ -73,6 +77,27 @@ export default function PatientDashboard() {
       setSymptomResult(res.data.symptom);
     } catch (error) { console.error(error); }
     finally { setSymptomLoading(false); }
+  };
+
+  const handleBookConsultation = async () => {
+    setBookingLoading(true);
+    try {
+      await axios.post(
+        'http://localhost:5000/api/patients/consultations',
+        { doctorId: bookingDoctorId, symptomId: symptomResult.id, date: bookingDate },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setConsultationBooked(true);
+      const res = await axios.get(
+        'http://localhost:5000/api/patients/consultations',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setConsultations(res.data.consultations);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -256,10 +281,50 @@ export default function PatientDashboard() {
                       <p className="font-medium text-slate-800">Spécialiste recommandé</p>
                       <p className="text-2xl font-bold text-emerald-500 mt-1">{symptomResult.suggestedSpecialty}</p>
                     </div>
-                    <p className="text-sm text-slate-500">Vos symptômes ont été enregistrés. Un médecin va prendre en charge votre dossier.</p>
-                    <Button variant="outline" onClick={() => setSymptomResult(null)} className="w-full">
-                      Décrire de nouveaux symptômes
-                    </Button>
+                    <p className="text-sm text-slate-500">Vos symptômes ont été enregistrés.</p>
+
+                    {!consultationBooked ? (
+                      <div className="text-left space-y-3 pt-3 border-t border-slate-100">
+                        <p className="text-sm font-medium text-slate-700">Réserver une consultation</p>
+                        <div className="space-y-2">
+                          <Label>ID du médecin</Label>
+                          <Input
+                            placeholder="ex: 4"
+                            value={bookingDoctorId}
+                            onChange={(e) => setBookingDoctorId(e.target.value)}
+                            className="border-slate-200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Date souhaitée</Label>
+                          <Input
+                            type="datetime-local"
+                            value={bookingDate}
+                            onChange={(e) => setBookingDate(e.target.value)}
+                            className="border-slate-200"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleBookConsultation}
+                          disabled={bookingLoading || !bookingDoctorId || !bookingDate}
+                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          {bookingLoading ? 'Réservation...' : 'Réserver la consultation'}
+                        </Button>
+                      </div>
+                      ) : (
+                        <div className="pt-2">
+                          <p className="text-sm text-emerald-600 font-medium mb-3">✅ Consultation réservée !</p>
+                          <Button variant="outline" onClick={() => {
+                            setSymptomResult(null);
+                            setConsultationBooked(false);
+                            setBookingDoctorId('');
+                            setBookingDate('');
+                          }} className="w-full">
+                            Décrire de nouveaux symptômes
+                          </Button>
+                        </div>
+                      )}
                   </div>
                 )}
               </div>

@@ -317,7 +317,9 @@ export default function DoctorDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-800">{c.Patient?.name}</p>
-                          <p className="text-xs text-slate-400">{new Date(c.date).toLocaleDateString('fr-FR')}</p>
+                          <p className="text-xs text-slate-400">
+                            Consultation #{c.id} — Patient #{c.patientId} — {new Date(c.date).toLocaleDateString('fr-FR')}
+                          </p>
                         </div>
                       </div>
                       {getStatusBadge(c.status)}

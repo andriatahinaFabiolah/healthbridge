@@ -48,7 +48,7 @@ export const createPrescription = async (req, res) => {
       doctorId: req.user.id,
       medications, duration, instructions,
     });
-    await Consultation.update({ status: 'done' }, { where: { id: consultationId } });
+    await Consultation.update({ status: 'active' }, { where: { id: consultationId } });
     res.status(201).json({ message: 'Ordonnance créée', prescription });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
