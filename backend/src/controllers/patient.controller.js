@@ -89,6 +89,26 @@ export const getMessages = async (req, res) => {
   }
 };
 
+// Récupérer les médecins (filtrés par spécialité si fournie)
+export const getDoctors = async (req, res) => {
+  try {
+    const { specialty } = req.query;
+    const where = { role: 'doctor' };
+    if (specialty) where.specialty = specialty;
+
+    let doctors = await User.findAll({ where, attributes: ['id', 'name', 'specialty'] });
+
+    // Si aucun médecin ne correspond exactement, on propose tous les médecins
+    if (doctors.length === 0 && specialty) {
+      doctors = await User.findAll({ where: { role: 'doctor' }, attributes: ['id', 'name', 'specialty'] });
+    }
+
+    res.status(200).json({ doctors });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
 // Envoyer un message
 export const sendMessage = async (req, res) => {
   try {

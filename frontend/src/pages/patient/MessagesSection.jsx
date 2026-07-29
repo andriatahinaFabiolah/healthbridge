@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import axios from 'axios';
 
-export default function MessagesSection({ user, token }) {
+export default function MessagesSection({ user, token, consultations }) {
   const [doctorId, setDoctorId] = useState('');
   const [activeDoctorId, setActiveDoctorId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -32,6 +33,10 @@ export default function MessagesSection({ user, token }) {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const doctorsFromConsultations = [...new Map(
+    (consultations || []).filter(c => c.Doctor).map(c => [c.Doctor.id, c.Doctor])
+  ).values()];
 
   useEffect(() => {
     scrollToBottom();
@@ -118,14 +123,23 @@ export default function MessagesSection({ user, token }) {
         <Card className="border-slate-100 shadow-none p-4 col-span-1">
           <div className="space-y-3">
             <div>
-              <Label className="mb-2 block text-slate-700">ID du médecin</Label>
-              <Input
-                placeholder="ex: 1"
-                value={doctorId}
-                onChange={(e) => setDoctorId(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLoadConversation()}
-                className="border-slate-200"
-              />
+              <Label className="mb-2 block text-slate-700">Choisir un médecin</Label>
+              <Select onValueChange={setDoctorId}>
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Sélectionner un médecin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctorsFromConsultations.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-slate-400">Réservez d'abord une consultation</div>
+                  ) : (
+                    doctorsFromConsultations.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        Dr. {d.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <Button
               onClick={handleLoadConversation}

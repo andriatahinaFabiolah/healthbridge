@@ -40,6 +40,7 @@ export default function PatientDashboard() {
   const [consultationBooked, setConsultationBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [messageInput, setMessageInput] = useState('');
+  const [doctors, setDoctors] = useState([]);
   const [doctorId, setDoctorId] = useState('');
 
   useEffect(() => {
@@ -70,11 +71,19 @@ export default function PatientDashboard() {
     } catch (error) { console.error(error); }
   };
 
+  const fetchDoctors = async (specialty) => {
+    try {
+      const res = await api(token).get(`/patients/doctors?specialty=${specialty}`);
+      setDoctors(res.data.doctors);
+    } catch (error) { console.error(error); }
+  };
+
   const handleSymptomSubmit = async () => {
     setSymptomLoading(true);
     try {
       const res = await api(token).post('/patients/symptoms', symptomForm);
       setSymptomResult(res.data.symptom);
+      fetchDoctors(res.data.symptom.suggestedSpecialty);
     } catch (error) { console.error(error); }
     finally { setSymptomLoading(false); }
   };
@@ -287,13 +296,23 @@ export default function PatientDashboard() {
                       <div className="text-left space-y-3 pt-3 border-t border-slate-100">
                         <p className="text-sm font-medium text-slate-700">Réserver une consultation</p>
                         <div className="space-y-2">
-                          <Label>ID du médecin</Label>
-                          <Input
-                            placeholder="ex: 4"
-                            value={bookingDoctorId}
-                            onChange={(e) => setBookingDoctorId(e.target.value)}
-                            className="border-slate-200"
-                          />
+                          <Label>Choisir un médecin</Label>
+                          <Select onValueChange={setBookingDoctorId}>
+                            <SelectTrigger className="border-slate-200">
+                              <SelectValue placeholder="Sélectionner un médecin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {doctors.length === 0 ? (
+                                <div className="px-3 py-2 text-sm text-slate-400">Aucun médecin disponible</div>
+                                ) : (
+                                  doctors.map((d) => (
+                                    <SelectItem key={d.id} value={String(d.id)}>
+                                      Dr. {d.name} — {d.specialty}
+                                    </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Date souhaitée</Label>
@@ -448,7 +467,7 @@ export default function PatientDashboard() {
 
         {/* SECTION: Messages */}
         {activeSection === 'messages' && (
-          <MessagesSection user={user} token={token} />
+          <MessagesSection user={user} token={token} consultations={consultations} />
         )}
 
       </div>
