@@ -6,8 +6,13 @@ export const getPatients = async (req, res) => {
     const consultations = await Consultation.findAll({
       where: { doctorId: req.user.id },
       include: [{ model: User, as: 'Patient', attributes: ['id', 'name', 'email', 'phone'] }],
+      order: [['createdAt', 'DESC']],
     });
-    const patients = [...new Map(consultations.map(c => [c.Patient.id, c.Patient])).values()];
+    const patients = [...new Map(consultations.map(c => [c.Patient.id, {
+      ...c.Patient.toJSON(),
+      consultationId: c.id,
+      consultationStatus: c.status,
+    }])).values()];
     res.status(200).json({ patients });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });

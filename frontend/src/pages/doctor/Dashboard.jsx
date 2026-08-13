@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import MessagesSection from './MessagesSection';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const api = (token) => axios.create({
   baseURL: 'http://localhost:5000/api',
@@ -343,18 +344,26 @@ export default function DoctorDashboard() {
                 {!prescriptionSuccess ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>ID Consultation</Label>
-                      <Input placeholder="ex: 1"
-                        value={prescriptionForm.consultationId}
-                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, consultationId: e.target.value })}
-                        className="border-slate-200" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>ID Patient</Label>
-                      <Input placeholder="ex: 3"
-                        value={prescriptionForm.patientId}
-                        onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patientId: e.target.value })}
-                        className="border-slate-200" />
+                      <Label>Choisir un patient</Label>
+                      <Select onValueChange={(value) => {
+                        const [pId, cId] = value.split('|');
+                        setPrescriptionForm({ ...prescriptionForm, patientId: pId, consultationId: cId });
+                      }}>
+                        <SelectTrigger className="border-slate-200">
+                          <SelectValue placeholder="Sélectionner un patient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {patients.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-400">Aucun patient pour l'instant</div>
+                          ) : (
+                            patients.map((p) => (
+                              <SelectItem key={p.id} value={`${p.id}|${p.consultationId}`}>
+                                {p.name} — Consultation #{p.consultationId}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Médicaments</Label>
@@ -403,7 +412,7 @@ export default function DoctorDashboard() {
 
         {/* SECTION: Messages */}
         {activeSection === 'messages' && (
-          <MessagesSection user={user} token={token} />
+          <MessagesSection user={user} token={token} patients={patients} />
         )}
         
         {/* SECTION: Notifications */}

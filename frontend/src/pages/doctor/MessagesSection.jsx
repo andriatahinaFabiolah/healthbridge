@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import axios from 'axios';
 
-export default function MessagesSection({ user, token }) {
+export default function MessagesSection({ user, token, patients }) {
   const [patientId, setPatientId] = useState('');
   const [activePatientId, setActivePatientId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -109,14 +110,23 @@ export default function MessagesSection({ user, token }) {
         <Card className="border-slate-100 shadow-none p-4 col-span-1">
           <div className="space-y-3">
             <div>
-              <Label className="mb-2 block text-slate-700">ID du patient</Label>
-              <Input
-                placeholder="ex: 3"
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLoadConversation()}
-                className="border-slate-200"
-              />
+              <Label className="mb-2 block text-slate-700">Choisir un patient</Label>
+              <Select onValueChange={setPatientId}>
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Sélectionner un patient" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(patients || []).length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-slate-400">Aucun patient pour l'instant</div>
+                  ) : (
+                    (patients || []).map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <Button
               onClick={handleLoadConversation}
