@@ -43,6 +43,19 @@ export const getPatientTreatment = async (req, res) => {
   }
 };
 
+// Liste de tous les médecins (pour choisir à qui envoyer une alerte)
+export const getDoctorsList = async (req, res) => {
+  try {
+    const doctors = await User.findAll({
+      where: { role: 'doctor' },
+      attributes: ['id', 'name', 'specialty'],
+    });
+    res.status(200).json({ doctors });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
 // Alerter le médecin
 export const alertDoctor = async (req, res) => {
   try {

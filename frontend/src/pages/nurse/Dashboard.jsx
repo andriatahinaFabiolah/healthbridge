@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Heart, LogOut, Users, ClipboardList,
@@ -33,12 +34,18 @@ export default function NurseDashboard() {
   const [alertSuccess, setAlertSuccess] = useState(false);
   const [alertLoading, setAlertLoading] = useState(false);
   const [alertsCount, setAlertsCount] = useState(0);
+  const [doctorsList, setDoctorsList] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await api(token).get('/nurses/patients');
-        setPatients(res.data.patients);
+        const http = api(token);
+        const [patientsRes, doctorsRes] = await Promise.all([
+          http.get('/nurses/patients'),
+          http.get('/nurses/doctors'),
+        ]);
+        setPatients(patientsRes.data.patients);
+        setDoctorsList(doctorsRes.data.doctors);
       } catch (error) {
         console.error(error);
       } finally {
@@ -372,18 +379,42 @@ export default function NurseDashboard() {
                 {!alertSuccess ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>ID Médecin</Label>
-                      <Input placeholder="ex: 1"
-                        value={alertForm.doctorId}
-                        onChange={(e) => setAlertForm({ ...alertForm, doctorId: e.target.value })}
-                        className="border-slate-200" />
+                      <Label>Choisir un médecin</Label>
+                      <Select onValueChange={(value) => setAlertForm({ ...alertForm, doctorId: value })}>
+                        <SelectTrigger className="border-slate-200">
+                          <SelectValue placeholder="Sélectionner un médecin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {doctorsList.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-400">Aucun médecin disponible</div>
+                          ) : (
+                            doctorsList.map((d) => (
+                              <SelectItem key={d.id} value={String(d.id)}>
+                                Dr. {d.name} — {d.specialty}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>ID Patient</Label>
-                      <Input placeholder="ex: 3"
-                        value={alertForm.patientId}
-                        onChange={(e) => setAlertForm({ ...alertForm, patientId: e.target.value })}
-                        className="border-slate-200" />
+                      <Label>Choisir un patient</Label>
+                      <Select onValueChange={(value) => setAlertForm({ ...alertForm, patientId: value })}>
+                        <SelectTrigger className="border-slate-200">
+                          <SelectValue placeholder="Sélectionner un patient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {patients.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-400">Aucun patient assigné</div>
+                          ) : (
+                            patients.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Message d'alerte</Label>
